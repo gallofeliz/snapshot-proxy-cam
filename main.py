@@ -156,23 +156,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         last_image_time = time.time()
 
+
+
+
+
+
+        print('request')
+        capture = cv2.VideoCapture(context['camera']['small_rtsp'])
+        frame_width = int(capture.get(3))
+        frame_height = int(capture.get(4))
+
+        #capture.release()
+
         while True:
             try:
-                img = self.get_image(context['camera'], source_type, size)
-                self.wfile.write(bytes(str("--jpgboundary"), 'utf8'))
-                self.send_header('Content-type','image/jpeg')
-                #self.send_header('Content-length',str(img.len))
-                self.end_headers()
-                self.wfile.write( img )
+                print('read')
+                (status, frame) = capture.read()
+                print(status)
                 sleep = last_image_time - time.time() + image_interval
-                if sleep > 0:
-                    time.sleep(sleep)
-                last_image_time = time.time()
+                print(sleep)
+                if sleep <= 0:
+                    img = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPG_COMPRESSION])[1]
+                    print('send image')
+                    self.wfile.write(bytes(str("--jpgboundary"), 'utf8'))
+                    self.send_header('Content-type','image/jpeg')
+                    #self.send_header('Content-length',str(img.len))
+                    self.end_headers()
+                    self.wfile.write( img )
+                    last_image_time = time.time()
             except BrokenPipeError as inst:
                 print('Disconnected')
                 context['run'] = False
+                capture.release()
                 break
             except Exception as inst:
+                print(inst)
                 time.sleep(5)
         return
 
